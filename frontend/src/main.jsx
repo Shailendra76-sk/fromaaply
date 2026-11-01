@@ -8,6 +8,7 @@ import MasterKnowledgeScreen from './stitch/MasterKnowledgeScreen.jsx';
 import BillingLogsScreen from './stitch/BillingLogsScreen.jsx';
 import HumanGatewayScreen from './stitch/HumanGatewayScreen.jsx';
 import HumanGatewayModal from './stitch/HumanGatewayModal.jsx';
+import SettingsScreen from './stitch/SettingsScreen.jsx';
 import './admin/tailwind.css';
 import AdminDashboard from './admin/AdminDashboard.tsx';
 
@@ -97,6 +98,7 @@ function AuthScreen({ onAuthenticated }) {
 
 function App() {
   const [view, setView] = useState(isAdminSurface ? 'admin' : 'core');
+  const [theme, setTheme] = useState(() => localStorage.getItem('formwise_theme') || 'dark');
   const [signedIn, setSignedIn] = useState(Boolean(accessToken) || isLocalApi);
   const [profile, setProfile] = useState({ full_name:'', date_of_birth:'', gender:'', email:'', phone:'' });
   const [docs, setDocs] = useState([]); const [education, setEducation] = useState([]); const [addresses, setAddresses] = useState([]); const [billing, setBilling] = useState(null);
@@ -119,10 +121,11 @@ function App() {
   const finalSubmit = () => setStatus('Manual action required: click the final Submit/Confirm button on the live website yourself.');
   const onHumanGate = gate => {setActiveGate(gate);setView('core');}; const onLiveControl = state => {if(state.control==='locked'&&state.mode==='ai'&&!state.paused)setActiveGate(null);}; const resumeHuman = () => {setResumeRequest(x=>x+1);setGateValue('');};
   const logout = async () => { try { if (accessToken) await fetch(`${API}/v1/auth/logout`, { method:'POST', headers:{ Authorization:`Bearer ${accessToken}`, 'Content-Type':'application/json' }, body:JSON.stringify({ refresh_token:localStorage.getItem('formwise_refresh_token') }) }); } finally { localStorage.removeItem('formwise_access_token'); localStorage.removeItem('formwise_refresh_token'); accessToken=''; setSignedIn(false); setWorkflow(null); } };
+  const changeTheme = nextTheme => { setTheme(nextTheme); localStorage.setItem('formwise_theme', nextTheme); };
   if (!signedIn && !isAdminSurface) return <AuthScreen onAuthenticated={() => setSignedIn(true)} />;
   if (view === 'admin') return <AdminDashboard />;
-  const renderView = () => { if(view==='vault')return <DocumentVaultScreen docs={docs} busy={busy} onUpload={upload} onExtract={extract}/>; if(view==='knowledge')return <MasterKnowledgeScreen profile={profile} education={education} addresses={addresses}/>; if(view==='billing')return <BillingLogsScreen billing={billing} busy={busy} onRefresh={loadBilling}/>; if(view==='human')return <HumanGatewayScreen gate={activeGate} onClose={()=>setView('core')}/>; return <CoreWorkspaceScreen apiBase={API} userId={uid} accessToken={accessToken} workflow={workflow} instruction={instruction} setInstruction={setInstruction} busy={busy} status={status} docs={docs} onStart={start} onConfirm={confirm} onOpen={openApp} onUpload={upload} onExtract={extract} onApprove={approveField} onFill={fill} onFinalApproval={finalApproval} onFinalSubmit={finalSubmit} approval={approval} screenshot={screenshot} onHumanGate={onHumanGate} onLiveControl={onLiveControl} resumeRequest={resumeRequest} saveProfile={saveProfile} />; };
-  return <StitchShell view={view} onNavigate={setView} status={status} onLogout={logout}>{renderView()}{activeGate&&<HumanGatewayModal gate={activeGate} gateValue={gateValue} setGateValue={setGateValue} onResume={resumeHuman} onCancel={()=>setView('human')} busy={busy}/>}</StitchShell>;
+  const renderView = () => { if(view==='settings')return <SettingsScreen profile={profile} setProfile={setProfile} onSave={saveProfile} docs={docs} busy={busy} onUpload={upload} onExtract={extract} onLogout={logout} theme={theme} onThemeChange={changeTheme}/>; if(view==='vault')return <DocumentVaultScreen docs={docs} busy={busy} onUpload={upload} onExtract={extract}/>; if(view==='knowledge')return <MasterKnowledgeScreen profile={profile} education={education} addresses={addresses}/>; if(view==='billing')return <BillingLogsScreen billing={billing} busy={busy} onRefresh={loadBilling}/>; if(view==='human')return <HumanGatewayScreen gate={activeGate} onClose={()=>setView('core')}/>; return <CoreWorkspaceScreen apiBase={API} userId={uid} accessToken={accessToken} workflow={workflow} instruction={instruction} setInstruction={setInstruction} busy={busy} status={status} docs={docs} onStart={start} onConfirm={confirm} onOpen={openApp} onUpload={upload} onExtract={extract} onApprove={approveField} onFill={fill} onFinalApproval={finalApproval} onFinalSubmit={finalSubmit} approval={approval} screenshot={screenshot} onHumanGate={onHumanGate} onLiveControl={onLiveControl} resumeRequest={resumeRequest} saveProfile={saveProfile} />; };
+  return <StitchShell view={view} onNavigate={setView} status={status} onLogout={logout} theme={theme}>{renderView()}{activeGate&&<HumanGatewayModal gate={activeGate} gateValue={gateValue} setGateValue={setGateValue} onResume={resumeHuman} onCancel={()=>setView('human')} busy={busy}/>}</StitchShell>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);

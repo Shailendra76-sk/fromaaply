@@ -8,9 +8,9 @@ const NAV = [
   ['human', '◇', 'Human Gateway'],
 ];
 
-export default function StitchShell({ view, onNavigate, status, onLogout, children }) {
+export default function StitchShell({ view, onNavigate, status, onLogout, theme = 'dark', children }) {
   return (
-    <div className="fw-app-shell">
+    <div className={`fw-app-shell fw-theme-${theme}`}>
       <header className="fw-topbar">
         <div className="fw-brand-wrap">
           <button className="fw-brand-mark" aria-label="Formwise home" onClick={() => onNavigate('core')}>↦</button>
@@ -25,7 +25,7 @@ export default function StitchShell({ view, onNavigate, status, onLogout, childr
           <div className="fw-cluster"><i /> Cluster: <b>Healthy</b><span>|</span><em>0.4s DOM Resolution</em></div>
           <button className="fw-ghost-btn">⌘ Inspect DOM</button>
           <button className="fw-ghost-btn fw-pause">◉ Pause Agent</button>
-          <button className="fw-avatar" aria-label="Sign out" onClick={onLogout}>●</button>
+          <button className={`fw-avatar ${view === 'settings' ? 'active' : ''}`} aria-label="Open user settings" onClick={() => onNavigate('settings')}>●</button>
         </div>
       </header>
 
@@ -37,6 +37,7 @@ export default function StitchShell({ view, onNavigate, status, onLogout, childr
               <span>{icon}</span>{label}
             </button>
           ))}
+          <button className={`fw-side-nav ${view === 'settings' ? 'active' : ''}`} onClick={() => onNavigate('settings')}><span>⚙</span>User Settings</button>
         </div>
         <div className="fw-telemetry">
           <div className="fw-telemetry-head"><span>TELEMETRY</span><b>ACTIVE</b></div>

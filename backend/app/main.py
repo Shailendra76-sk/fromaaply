@@ -8,6 +8,7 @@ from redis import Redis
 from sqlalchemy import text
 
 from app.admin_routes import router as admin_router
+from app.admin_privacy_routes import router as admin_privacy_router
 from app.agent_routes import router as agent_router
 from app.approval_routes import router as approval_router
 from app.browser_agent import close_all_sessions
@@ -86,6 +87,7 @@ app.include_router(universal_research_router)
 app.include_router(auth_router)
 app.include_router(payment_router)
 app.include_router(admin_router)
+app.include_router(admin_privacy_router)
 app.include_router(task_router)
 
 

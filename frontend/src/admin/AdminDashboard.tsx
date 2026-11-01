@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './admin-dashboard.css';
 import PrivacyCenter from './PrivacyCenter';
+import PrivacyGovernance from './PrivacyGovernance';
 
-type AdminTab = 'cockpit' | 'privacy' | 'vault' | 'growth';
+type AdminTab = 'cockpit' | 'privacy' | 'governance' | 'vault' | 'growth';
 type Provider = { name: string; short: string; tier: string; masked: string; latency: string; configured: boolean };
 type UserRow = { id: string; name: string; plan: string; credits: number; status: string; spend: string; lastJob: string; lastTransactionId?: string; lastTransactionStatus?: string };
 type AdminSummary = { users:number; websites:number; enabled_websites:number; audit_events:number; tasks?:number; browser_sessions?:number; ai_usage?:number };
@@ -251,10 +252,11 @@ export default function AdminDashboard() {
       </section>
 
       <section className="fw-tabbar" role="tablist" aria-label="Super admin control sets">
-        {([['cockpit','LIVE COCKPIT','User Ledger + Revenue'],['privacy','PRIVACY CENTER','Masked Data + Audit'],['vault','SECURE VAULTS','LLM + Storage + Identity'],['growth','GROWTH / ADS','Coupons + Referrals + Refunds']] as const).map(([key,label,sub]) => <button key={key} role="tab" aria-selected={tab===key} onClick={()=>setTab(key)} className={tab===key ? 'is-active':''}><span>{label}</span><small>{sub}</small></button>)}
+        {([['cockpit','LIVE COCKPIT','User Ledger + Revenue'],['privacy','PRIVACY CENTER','Masked Data + Audit'],['governance','PRIVACY GOVERNANCE','Roles + Retention + Requests'],['vault','SECURE VAULTS','LLM + Storage + Identity'],['growth','GROWTH / ADS','Coupons + Referrals + Refunds']] as const).map(([key,label,sub]) => <button key={key} role="tab" aria-selected={tab===key} onClick={()=>setTab(key)} className={tab===key ? 'is-active':''}><span>{label}</span><small>{sub}</small></button>)}
       </section>
 
       {tab === 'privacy' && <PrivacyCenter summary={summary} users={users.map(user => ({id:user.id,name:user.name,status:user.status,plan:user.plan}))} auditLogs={auditLogs} sessions={browserSessions} freeze={freeze} onFreeze={value => { setFreeze(value); pushLog(`PRIVACY: ${value ? 'Emergency freeze enabled.' : 'Emergency freeze released.'}`); }} status={status} />}
+      {tab === 'governance' && <PrivacyGovernance />}
 
       {tab === 'cockpit' && <section className="space-y-5">
         <div className="grid gap-4 xl:grid-cols-5">

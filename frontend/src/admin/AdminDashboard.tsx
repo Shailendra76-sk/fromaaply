@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './admin-dashboard.css';
+import PrivacyCenter from './PrivacyCenter';
 
-type AdminTab = 'cockpit' | 'vault' | 'growth';
+type AdminTab = 'cockpit' | 'privacy' | 'vault' | 'growth';
 type Provider = { name: string; short: string; tier: string; masked: string; latency: string; configured: boolean };
 type UserRow = { id: string; name: string; plan: string; credits: number; status: string; spend: string; lastJob: string; lastTransactionId?: string; lastTransactionStatus?: string };
 type AdminSummary = { users:number; websites:number; enabled_websites:number; audit_events:number; tasks?:number; browser_sessions?:number; ai_usage?:number };
 type ProviderPolicy = { provider:string; priority:number; enabled:boolean; status?:string; error_rate?:string };
 type WebsiteHealth = { website_id:string; name:string; verified:boolean; enabled:boolean; health_status:string; version:string };
 type LiveProvider = { provider:string; display_name?:string; configured:boolean; enabled:boolean; status?:string; priority:number; fallback_order:number; capabilities?:string[] };
+type AuditRecord = { id:string|number; user_id?:string|null; action:string; resource_type:string; resource_id?:string|null; created_at?:string|null };
+type BrowserSession = { browser_session_id:string; task_id?:string|null; user_id?:string|null; state:string; target_url?:string|null; updated_at?:string|null };
 
 const API = localStorage.getItem('formwise_api') || 'http://localhost:8000';
 const adminToken = () => localStorage.getItem('formwise_access_token') || localStorage.getItem('formwise_admin_token') || '';
@@ -94,6 +97,8 @@ export default function AdminDashboard() {
   const [liveProviders, setLiveProviders] = useState<LiveProvider[]>([]);
   const [storageProviders, setStorageProviders] = useState<Array<{provider:string;display_name:string;health:string;enabled:boolean}>>([]);
   const [authProviders, setAuthProviders] = useState<Array<{provider:string;display_name:string;health:string;enabled:boolean}>>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditRecord[]>([]);
+  const [browserSessions, setBrowserSessions] = useState<BrowserSession[]>([]);
 
   useEffect(() => {
     localStorage.setItem('formwise_maintenance_mode', String(maintenance));
@@ -111,7 +116,9 @@ export default function AdminDashboard() {
       adminRequest<Array<{provider:string;display_name:string;health:string;enabled:boolean}>>('/v1/admin/storage/providers'),
       adminRequest<Array<{provider:string;display_name:string;health:string;enabled:boolean}>>('/v1/admin/auth/providers'),
       adminRequest<{users:number;new_users_30d:number;active_users_30d:number;tasks_30d:number}>('/v1/admin/marketing/insights'),
-    ]).then(([liveSummary, liveUsage, liveUsers, livePolicy, liveWebsites, liveAIProviders, liveStorageProviders, liveAuthProviders, liveMarketing]) => {
+      adminRequest<AuditRecord[]>('/v1/admin/audit-logs'),
+      adminRequest<BrowserSession[]>('/v1/admin/browser-sessions'),
+    ]).then(([liveSummary, liveUsage, liveUsers, livePolicy, liveWebsites, liveAIProviders, liveStorageProviders, liveAuthProviders, liveMarketing, liveAuditLogs, liveBrowserSessions]) => {
       setSummary(liveSummary);
       setAiUsage({total_tokens: liveUsage.total_tokens, total_cost: liveUsage.total_cost});
       setUsers(liveUsers.map(user => ({id:user.user_id, name:user.email, plan:user.role, credits:Number(user.credits || 0), status:user.status, spend:'—', lastJob:user.last_transaction_status || '—', lastTransactionId:user.last_transaction_id, lastTransactionStatus:user.last_transaction_status})));
@@ -121,6 +128,8 @@ export default function AdminDashboard() {
       setStorageProviders(liveStorageProviders);
       setAuthProviders(liveAuthProviders);
       setMarketingInsights(liveMarketing);
+      setAuditLogs(liveAuditLogs);
+      setBrowserSessions(liveBrowserSessions);
       setProviders(liveAIProviders.map(item => ({name:item.display_name || item.provider, short:item.provider.slice(0,2).toUpperCase(), tier:item.status || 'unconfigured', masked:item.configured ? '•••• configured' : '', latency:'—', configured:item.configured})));
       setStatus('LIVE DATABASE TELEMETRY CONNECTED');
     }).catch(error => setStatus(error instanceof Error ? error.message : 'Admin telemetry unavailable.'));
@@ -242,8 +251,10 @@ export default function AdminDashboard() {
       </section>
 
       <section className="fw-tabbar" role="tablist" aria-label="Super admin control sets">
-        {([['cockpit','LIVE COCKPIT','User Ledger + Revenue'],['vault','SECURE VAULTS','LLM + Storage + Identity'],['growth','GROWTH / ADS','Coupons + Referrals + Refunds']] as const).map(([key,label,sub]) => <button key={key} role="tab" aria-selected={tab===key} onClick={()=>setTab(key)} className={tab===key ? 'is-active':''}><span>{label}</span><small>{sub}</small></button>)}
+        {([['cockpit','LIVE COCKPIT','User Ledger + Revenue'],['privacy','PRIVACY CENTER','Masked Data + Audit'],['vault','SECURE VAULTS','LLM + Storage + Identity'],['growth','GROWTH / ADS','Coupons + Referrals + Refunds']] as const).map(([key,label,sub]) => <button key={key} role="tab" aria-selected={tab===key} onClick={()=>setTab(key)} className={tab===key ? 'is-active':''}><span>{label}</span><small>{sub}</small></button>)}
       </section>
+
+      {tab === 'privacy' && <PrivacyCenter summary={summary} users={users.map(user => ({id:user.id,name:user.name,status:user.status,plan:user.plan}))} auditLogs={auditLogs} sessions={browserSessions} freeze={freeze} onFreeze={value => { setFreeze(value); pushLog(`PRIVACY: ${value ? 'Emergency freeze enabled.' : 'Emergency freeze released.'}`); }} status={status} />}
 
       {tab === 'cockpit' && <section className="space-y-5">
         <div className="grid gap-4 xl:grid-cols-5">

@@ -1,0 +1,31 @@
+import React from 'react';
+
+type Summary = { users:number; audit_events:number; browser_sessions?:number; tasks?:number };
+type User = { id:string; name:string; status:string; plan:string };
+type Audit = { id:string|number; user_id?:string|null; action:string; resource_type:string; resource_id?:string|null; created_at?:string|null };
+type Session = { browser_session_id:string; task_id?:string|null; user_id?:string|null; state:string; target_url?:string|null; updated_at?:string|null };
+
+type Props = { summary:Summary|null; users:User[]; auditLogs:Audit[]; sessions:Session[]; freeze:boolean; onFreeze:(value:boolean)=>void; status:string };
+const maskEmail = (value:string) => { const [local, domain] = value.split('@'); if (!domain) return `${value.slice(0,3)}••••`; return `${local.slice(0,2)}••••@${domain}`; };
+const maskId = (value?:string|null) => value ? `${value.slice(0,8)}…` : '—';
+const formatTime = (value?:string|null) => value ? new Date(value).toLocaleString('en-IN', { dateStyle:'medium', timeStyle:'short' }) : '—';
+
+function PrivacyMetric({ label, value, note, tone = '' }:{label:string;value:string|number;note:string;tone?:string}) { return <div className={`fw-privacy-metric ${tone}`}><span>{label}</span><strong>{value}</strong><small>{note}</small></div>; }
+
+export default function PrivacyCenter({ summary, users, auditLogs, sessions, freeze, onFreeze, status }:Props) {
+  const recentAudit = auditLogs.slice(0, 8);
+  const activeSessions = sessions.filter(item => !['closed','completed','failed'].includes(String(item.state).toLowerCase()));
+  return <section className="fw-privacy-center space-y-5">
+    <div className="fw-privacy-hero"><div><div className="fw-eyebrow">STEP 1 · PRIVACY-FIRST FOUNDATION</div><h2>Privacy Control Center</h2><p>Monitor access to user data without exposing raw documents, passwords, OTPs or provider secrets.</p></div><div className={`fw-privacy-posture ${freeze ? 'is-frozen':''}`}><i /> {freeze ? 'EMERGENCY FREEZE ACTIVE' : 'PRIVACY POSTURE · MONITORED'}</div></div>
+    <div className="fw-privacy-grid"><PrivacyMetric label="USER RECORDS" value={summary?.users ?? '—'} note="Database-backed count" /><PrivacyMetric label="AUDIT EVENTS" value={summary?.audit_events ?? '—'} note="Recorded security events" tone="cyan" /><PrivacyMetric label="ACTIVE BROWSER SESSIONS" value={activeSessions.length} note={`${sessions.length} sessions returned`} /><PrivacyMetric label="UNMASKED DATA" value="Protected" note="Raw values are not shown here" tone="safe" /></div>
+    <div className="grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
+      <div className="fw-panel"><div className="fw-section-head"><div><div className="fw-eyebrow">ACCESS MONITOR</div><h2>Masked user records</h2></div><span className="fw-chip">NO RAW PII</span></div><div className="overflow-x-auto"><table className="fw-table"><thead><tr><th>USER</th><th>ROLE</th><th>STATUS</th><th>IDENTITY DISPLAY</th></tr></thead><tbody>{users.slice(0,10).map(user => <tr key={user.id}><td><strong>{maskId(user.id)}</strong><small>Owner ID masked</small></td><td>{user.plan || 'user'}</td><td><span className="fw-state">{user.status}</span></td><td>{maskEmail(user.name)}</td></tr>)}{!users.length && <tr><td colSpan={4}>No user records returned from the admin API.</td></tr>}</tbody></table></div><div className="fw-privacy-note">Raw email, phone, address and document contents stay outside this view. A future unmask request must require a reason, step-up verification and an expiring audit grant.</div></div>
+      <div className="fw-panel"><div className="fw-section-head"><div><div className="fw-eyebrow">SAFETY CONTROLS</div><h2>Emergency operations</h2></div></div><div className="fw-privacy-control"><div><strong>Freeze new workflows</strong><span>Stops standard user workflow access while preserving audit data.</span></div><button className={`fw-btn ${freeze ? 'fw-btn-danger':'fw-btn-secondary'}`} onClick={() => onFreeze(!freeze)}>{freeze ? 'RELEASE FREEZE':'FREEZE ACCESS'}</button></div><div className="fw-privacy-control"><div><strong>Admin session posture</strong><span>{status || 'Admin API status unavailable'}</span></div><span className="fw-state">SERVER CHECKED</span></div><div className="fw-privacy-note warning">Sensitive actions such as refunds and provider changes remain behind server authorization and preview-confirmation.</div></div>
+    </div>
+    <div className="grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
+      <div className="fw-panel"><div className="fw-section-head"><div><div className="fw-eyebrow">AUDIT TIMELINE</div><h2>Recent access events</h2></div><span className="fw-chip">LIVE API</span></div><div className="fw-audit-list">{recentAudit.map(event => <div className="fw-audit-row" key={String(event.id)}><span className="fw-audit-dot" /><div><strong>{event.action}</strong><small>{event.resource_type} · resource {maskId(event.resource_id)} · user {maskId(event.user_id)}</small></div><time>{formatTime(event.created_at)}</time></div>)}{!recentAudit.length && <div className="fw-privacy-empty">No audit events returned. This is not interpreted as zero risk.</div>}</div></div>
+      <div className="fw-panel"><div className="fw-section-head"><div><div className="fw-eyebrow">BROWSER ACCESS</div><h2>Active sessions</h2></div><span className="fw-chip">SERVER AUTHORITATIVE</span></div><div className="fw-audit-list">{activeSessions.slice(0,8).map(session => <div className="fw-audit-row" key={session.browser_session_id}><span className="fw-audit-dot cyan" /><div><strong>{session.state}</strong><small>Session {maskId(session.browser_session_id)} · user {maskId(session.user_id)}<br/>{session.target_url || 'Target hidden'}</small></div><time>{formatTime(session.updated_at)}</time></div>)}{!activeSessions.length && <div className="fw-privacy-empty">No active browser sessions returned.</div>}</div></div>
+    </div>
+    <div className="fw-panel fw-privacy-contract"><div><div className="fw-eyebrow">PRIVACY CONTRACT</div><h2>What this panel protects</h2></div><div className="fw-privacy-contract-grid"><span>Passwords, OTPs and API keys are never displayed.</span><span>Document contents are not loaded into the admin UI.</span><span>Identity and workflow access is server-authorized.</span><span>Audit events avoid raw secrets and sensitive document data.</span></div></div>
+  </section>;
+}

@@ -1,48 +1,75 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import LiveBrowserCanvas from '../LiveBrowserCanvas.tsx';
+
+function StatusPill({ label, value, tone = '' }) {
+  return <div className={`fw-focus-pill ${tone}`}><span>{label}</span><b>{value}</b></div>;
+}
 
 export default function CoreWorkspaceScreen({
   apiBase, userId, accessToken, workflow, instruction, setInstruction, busy, status, docs,
   onStart, onConfirm, onOpen, onUpload, onExtract, onApprove, onFill, onFinalApproval, onFinalSubmit,
   approval, screenshot, onHumanGate, onLiveControl, resumeRequest,
 }) {
+  const uploadRef = useRef(null);
   const fills = workflow?.plan?.fills || [];
   const approvals = workflow?.fieldApprovals || {};
-  const human = workflow?.plan?.human_required || workflow?.result?.human_required || [];
   const facts = workflow?.research?.facts || {};
-  const progress = workflow?.state === 'final_review' ? 92 : workflow?.session_id ? 68 : workflow ? 36 : 10;
-  return <div className="fw-core-layout">
-    <section className="fw-left-rail">
-      <button className="fw-upload-card" onClick={() => document.getElementById('fw-upload')?.click()}><span className="fw-upload-plus">+</span><span><b>Instant Upload</b><small>Drop PDF, XML, image</small></span><em>RAW/OCR</em></button>
-      <input id="fw-upload" className="fw-hidden" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={onUpload}/>
-      <div className="fw-search-box">⌕ <input aria-label="Smart search" placeholder="Search target schema or ask AI" value={instruction} onChange={e => setInstruction(e.target.value)} /></div>
-      <div className="fw-chat-card">
-        <div className="fw-card-head"><div><i className="fw-dot"/> Neural Agent Chat</div><span>AUTONOMOUS<br/>MODE</span></div>
-        <div className="fw-chat-line"><b>FORMWISE_DAEMON</b><time>11:41:40</time><p>Target portal loaded. Semantic field discovery is ready; sensitive values stay server-side.</p></div>
-        <div className="fw-chat-line"><b>FORMWISE_DAEMON</b><time>11:41:52</time><p>Ready to automate with verified parameters and server-side approvals.</p></div>
-        <div className="fw-metric-grid"><span>Confidence <b>99.4%</b></span><span>Encrypted Vault <b>READY</b></span><span>Human Gates <b>{human.length || 0}</b></span></div>
-        <button className="fw-neon-btn" onClick={onStart} disabled={busy || instruction.length < 3}>Start autonomous workflow ↗</button>
+  const human = workflow?.plan?.human_required || workflow?.result?.human_required || [];
+  const progress = workflow?.state === 'final_review' ? 92 : workflow?.session_id ? 68 : workflow ? 36 : 0;
+  const submitPrompt = event => {
+    event.preventDefault();
+    if (!busy && instruction.trim().length >= 3) onStart();
+  };
+
+  return <div className="fw-focus-workspace">
+    <header className="fw-focus-header">
+      <div>
+        <div className="fw-focus-eyebrow">FORMWISE WORKSPACE</div>
+        <h1>{workflow?.session_id ? 'Your form is being prepared' : 'What do you want to fill today?'}</h1>
+        <p>{workflow?.session_id ? 'Watch the live form below. Formwise pauses whenever your confirmation is needed.' : 'Ask Formwise to prepare a form using your approved documents.'}</p>
       </div>
+      <div className="fw-focus-status"><i /> {busy ? 'Working' : workflow?.state ? workflow.state.replaceAll('_', ' ') : 'Ready'}</div>
+    </header>
+
+    <section className="fw-focus-summary" aria-label="Workspace status">
+      <StatusPill label="Progress" value={progress ? `${progress}%` : 'Not started'} />
+      <StatusPill label="Documents" value={`${docs.length} attached`} />
+      <StatusPill label="Security" value="Human approval" tone="safe" />
+      {workflow?.session_id && <StatusPill label="Session" value={`#${workflow.session_id}`} />}
     </section>
 
-    <section className="fw-center-stage">
-      <div className="fw-panel-title"><div><span className="fw-kicker">AGENT // RUNNING</span><b>{workflow?.session_id ? `TARGET SESSION #${workflow.session_id}` : 'TARGET SESSION // NOT STARTED'}</b></div><span className="fw-safe-pill">⌁ Isolated headless browser</span></div>
-      {workflow?.session_id ? <LiveBrowserCanvas apiBase={apiBase} userId={userId} accessToken={accessToken} sessionId={workflow.session_id} onStatus={() => {}} onHumanGate={onHumanGate} onLiveControl={onLiveControl} resumeRequest={resumeRequest} /> : <div className="fw-empty-browser"><div>FORM FILL VIEWPORT</div><h2>Start a workflow to attach the secure live browser.</h2><p>PR #12/#13 guardrails remain authoritative: AI input stays locked unless backend broadcasts an approved human gate.</p></div>}
+    <main className="fw-form-stage">
+      <div className="fw-form-stage-head">
+        <div><span className="fw-focus-eyebrow">LIVE FORM</span><strong>{workflow?.session_id ? `Session #${workflow.session_id}` : 'Your form will appear here'}</strong></div>
+        <span className="fw-live-indicator"><i /> {workflow?.session_id ? 'LIVE VIEW' : 'WAITING'}</span>
+      </div>
+      {workflow?.session_id
+        ? <LiveBrowserCanvas apiBase={apiBase} userId={userId} accessToken={accessToken} sessionId={workflow.session_id} onStatus={() => {}} onHumanGate={onHumanGate} onLiveControl={onLiveControl} resumeRequest={resumeRequest} />
+        : <div className="fw-form-empty"><div className="fw-form-empty-icon">⌁</div><h2>Live form filling screen</h2><p>Start a request below. The website and every field Formwise fills will be visible here.</p><div className="fw-empty-steps"><span><b>1</b> Ask</span><span><b>2</b> Review</span><span><b>3</b> Approve</span></div></div>}
 
-      {workflow?.state === 'research_ready' && <div className="fw-inline-status"><b>Research ready for human review.</b><p>{facts.application_window || 'Application window not extracted'} · Last date: {facts.last_date || 'Not extracted'} · Fee: {facts.fee_rupees ? `₹${facts.fee_rupees}` : 'Not extracted'}</p><div><button onClick={() => onConfirm(true)} disabled={busy}>I reviewed it — continue</button><button onClick={() => onConfirm(false)} disabled={busy}>Cancel</button></div></div>}
-      {workflow?.state === 'documents_missing' && <div className="fw-inline-status"><b>Document checklist requires attention.</b><pre>{JSON.stringify(workflow.document_check || {}, null, 2)}</pre><button onClick={() => onConfirm(true)} disabled={busy}>Re-check checklist</button></div>}
-      {workflow?.state === 'documents_ready' && <div className="fw-inline-status"><b>Document checklist passed.</b><p>Target application can now be opened inside the isolated browser.</p><button className="fw-neon-btn" onClick={onOpen} disabled={busy}>Open target application ↗</button></div>}
+      {workflow?.state === 'research_ready' && <div className="fw-focus-alert"><b>Review the application details before continuing</b><p>{facts.application_window || 'Application window not extracted'} · Last date: {facts.last_date || 'Not extracted'} · Fee: {facts.fee_rupees ? `₹${facts.fee_rupees}` : 'Not extracted'}</p><div className="fw-focus-actions"><button onClick={() => onConfirm(true)} disabled={busy}>Continue after review</button><button className="quiet" onClick={() => onConfirm(false)} disabled={busy}>Cancel</button></div></div>}
+      {workflow?.state === 'documents_missing' && <div className="fw-focus-alert warning"><b>Some documents are still required</b><p>Attach the missing document below, then re-check the list.</p><button onClick={() => onConfirm(true)} disabled={busy}>Re-check documents</button></div>}
+      {workflow?.state === 'documents_ready' && <div className="fw-focus-alert"><b>Your documents are ready</b><p>The target application can now be opened in the live screen.</p><button onClick={onOpen} disabled={busy}>Open form</button></div>}
 
-      {workflow && <div className="fw-action-bar"><button onClick={onOpen} disabled={busy || workflow.state !== 'documents_ready'}>⌗ Inspect DOM</button><button>◉ Pause Agent</button><button onClick={() => fills[0] && onApprove(fills[0])} disabled={busy || !fills[0] || !fills[0].requires_approval}>⇥ Approve Field</button><button className="fw-neon-btn" onClick={onFill} disabled={busy || !fills.length}>Request Sign-Off</button></div>}
-      {workflow && <div className="fw-field-strip">{fills.slice(0,4).map(x => <div key={x.index} className="fw-field-card"><span>{x.index + 1}. {x.field}</span><b>{x.requires_approval ? 'SENSITIVE' : 'VERIFIED'}</b><p>{String(x.value ?? '').slice(0,34)}</p><small>{approvals[x.index] ? 'APPROVED' : 'READY'}</small></div>)}</div>}
-      {workflow?.state === 'final_review' && <div className="fw-inline-status"><b>Final review — nothing is submitted yet.</b><p>Review every field and screenshot. Formwise will never click the final Submit/Confirm control. You must submit manually on the website.</p>{screenshot && <img className="shot" src={screenshot} alt="Latest workflow screenshot"/>}<button onClick={onFinalApproval} disabled={busy}>I reviewed the form — show manual submit instructions</button>{approval && <button className="fw-neon-btn" onClick={onFinalSubmit} disabled={busy}>I WILL CLICK FINAL SUBMIT MANUALLY</button>}</div>}
-      {status && <div className="fw-inline-status">{status}</div>}
-    </section>
+      {workflow && <section className="fw-review-strip">
+        <div className="fw-review-title"><div><span className="fw-focus-eyebrow">REVIEW QUEUE</span><strong>{fills.length ? `${fills.length} fields detected` : 'Preparing fields'}</strong></div><span>{human.length ? `${human.length} human step${human.length > 1 ? 's' : ''}` : 'No human step yet'}</span></div>
+        {fills.length > 0 && <div className="fw-field-list">{fills.slice(0, 4).map(item => <div className="fw-focus-field" key={item.index}><div><span>{item.field}</span><b>{item.requires_approval ? 'Needs approval' : 'Verified'}</b></div><p>{String(item.value ?? '').slice(0, 48) || 'Value ready'}</p>{item.requires_approval && !approvals[item.index] && <button onClick={() => onApprove(item)} disabled={busy}>Approve</button>}</div>)}</div>}
+        <div className="fw-review-actions">{workflow.state === 'documents_ready' && <button onClick={onOpen} disabled={busy}>Inspect form</button>}<button className="fw-primary-action" onClick={onFill} disabled={busy || !fills.length}>Fill approved fields</button></div>
+      </section>}
 
-    <section className="fw-right-rail">
-      <div className="fw-progress-card"><div className="fw-card-head"><h3>Progress Matrix</h3><span>STREAM: LIVE</span></div><div className="fw-log-list"><p><b>[11:42:01]</b> DOM MUTATION <span>Self-Healing active</span></p><p><b>[11:42:11]</b> SECURITY <span>Verified values never leave server</span></p><p><b>[11:42:18]</b> HUMAN GATE <span>{human.length ? human.join(', ') : 'None detected'}</span></p><p><b>[11:42:22]</b> BROWSER <span>Live frame loop connected</span></p></div></div>
-      <div className="fw-progress-metric"><div><span>Progress Metric</span><b>{progress}%</b></div><div className="fw-progress-track"><i style={{width:`${progress}%`}}/></div><p>Phase {workflow?.state || 'ready'} · final submission remains explicit</p><div className="fw-mini-chart">▁▃▂▆▄▇▅█</div></div>
-      <div className="fw-vault-mini"><div className="fw-card-head"><h3>Secure Vault</h3><span>{docs.length} docs</span></div>{docs.slice(0,3).map(d => <div className="fw-mini-row" key={d.id}><span>▣ {d.original_filename}</span><b>{d.status}</b><button onClick={() => onExtract(d.id)} disabled={busy}>Extract</button></div>)}{!docs.length && <p>No documents uploaded yet. Use Instant Upload to add PDF/JPEG/PNG/WEBP up to 10MB.</p>}</div>
-    </section>
+      {workflow?.state === 'final_review' && <div className="fw-focus-alert review"><b>Final review required</b><p>Check the completed form and screenshot carefully. Formwise will not click the final Submit button.</p>{screenshot && <img className="fw-review-shot" src={screenshot} alt="Latest form screenshot" />}<div className="fw-focus-actions"><button onClick={onFinalApproval} disabled={busy}>Show manual submit instructions</button>{approval && <button className="fw-primary-action" onClick={onFinalSubmit} disabled={busy}>I will submit manually</button>}</div></div>}
+      {status && <div className="fw-focus-status-line"><i /> {status}</div>}
+    </main>
+
+    <form className="fw-composer" onSubmit={submitPrompt}>
+      <div className="fw-composer-top"><span className="fw-composer-label">Ask Formwise</span><span className="fw-composer-hint">Your data stays private and needs your approval</span></div>
+      <div className="fw-composer-row">
+        <button type="button" className="fw-attach-button" onClick={() => uploadRef.current?.click()} aria-label="Attach document or photo">+</button>
+        <input ref={uploadRef} className="fw-hidden" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={onUpload} />
+        <input className="fw-composer-input" aria-label="Ask Formwise" placeholder="Search a form or tell me what you need…" value={instruction} onChange={event => setInstruction(event.target.value)} />
+        <button type="submit" className="fw-send-button" disabled={busy || instruction.trim().length < 3}>{busy ? 'Working…' : workflow ? 'Continue' : 'Start'}</button>
+      </div>
+      <div className="fw-composer-bottom"><span>+ Add document or photo</span><span>Enter to send</span>{docs.length > 0 && <span className="fw-attached-count">{docs.length} document{docs.length > 1 ? 's' : ''} ready</span>}</div>
+    </form>
   </div>;
 }
